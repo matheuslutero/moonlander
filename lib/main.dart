@@ -4,6 +4,7 @@ import 'package:flame/components.dart';
 import 'package:flame/flame.dart';
 import 'package:flame/game.dart';
 import 'package:flame/input.dart';
+import 'package:flame/sprite.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:moonlander/components/pause_component.dart';
@@ -42,7 +43,11 @@ Future<void> main() async {
 
 /// This class encapulates the whole game.
 class MoonlanderGame extends FlameGame
-    with HasCollidables, HasTappableComponents, HasKeyboardHandlerComponents {
+    with
+        HasCollidables,
+        HasTappableComponents,
+        HasKeyboardHandlerComponents,
+        HasDraggableComponents {
   /// Depending on the active overlay state we turn of the engine or not.
   void onOverlayChanged() {
     if (overlays.isActive('pause')) {
@@ -74,74 +79,53 @@ class MoonlanderGame extends FlameGame
 
   @override
   Future<void> onLoad() async {
-    final pausButton = await Sprite.load('PauseButton.png');
-    const stepTime = .3;
-    final textureSize = Vector2(16, 24);
-    const frameCount = 2;
-    final idle = await loadSpriteAnimation(
-      'ship_animation_idle.png',
-      SpriteAnimationData.sequenced(
-        amount: frameCount,
-        stepTime: stepTime,
-        textureSize: textureSize,
-      ),
+    final image = await images.load('joystick.png');
+    final sheet = SpriteSheet.fromColumnsAndRows(
+      image: image,
+      columns: 6,
+      rows: 1,
     );
-    final left = await loadSpriteAnimation(
-      'ship_animation_left.png',
-      SpriteAnimationData.sequenced(
-        amount: frameCount,
-        stepTime: stepTime,
-        textureSize: textureSize,
+    final joystick = JoystickComponent(
+      knob: SpriteComponent(
+        sprite: sheet.getSpriteById(1),
+        size: Vector2.all(100),
       ),
-    );
-    final right = await loadSpriteAnimation(
-      'ship_animation_right.png',
-      SpriteAnimationData.sequenced(
-        amount: frameCount,
-        stepTime: stepTime,
-        textureSize: textureSize,
+      background: SpriteComponent(
+        sprite: sheet.getSpriteById(0),
+        size: Vector2.all(150),
       ),
+      margin: const EdgeInsets.only(left: 40, bottom: 40),
     );
-    final farRight = await loadSpriteAnimation(
-      'ship_animation_far_right.png',
-      SpriteAnimationData.sequenced(
-        amount: frameCount,
-        stepTime: stepTime,
-        textureSize: textureSize,
-      ),
-    );
-    final farLeft = await loadSpriteAnimation(
-      'ship_animation_far_left.png',
-      SpriteAnimationData.sequenced(
-        amount: frameCount,
-        stepTime: stepTime,
-        textureSize: textureSize,
-      ),
-    );
-    final rocketAnimation = {
-      RocketState.idle: idle,
-      RocketState.left: left,
-      RocketState.right: right,
-      RocketState.farLeft: farLeft,
-      RocketState.farRight: farRight
-    };
 
     unawaited(
       add(
         RocketComponent(
           position: size / 2,
           size: Vector2(32, 48),
-          animation: rocketAnimation,
+          joystick: joystick,
         ),
       ),
     );
-    unawaited(add(PauseComponent(position: Vector2(0, 0), sprite: pausButton)));
-    //Only in debug mode, add 3s wait to simulate loading
-    if (kDebugMode) {
-      await Future<void>.delayed(const Duration(seconds: 3));
-    }
-    overlays.addListener(onOverlayChanged);
+    unawaited(add(joystick));
 
+    unawaited(
+      add(
+        PauseComponent(
+          margin: const EdgeInsets.all(5),
+          sprite: await Sprite.load('PauseButton.png'),
+          spritePressed: await Sprite.load('PauseButtonInvert.png'),
+          onPressed: () {
+            if (overlays.isActive('pause')) {
+              overlays.remove('pause');
+            } else {
+              overlays.add('pause');
+            }
+          },
+        ),
+      ),
+    );
+
+    overlays.addListener(onOverlayChanged);
     return super.onLoad();
   }
 }
